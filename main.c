@@ -51,5 +51,6 @@ int main()
     {
         pid = wait(&status);
     }
+    // Destruye el semaforo
     erasesem(sem);
 }
