@@ -18,63 +18,50 @@ int msgqid;
 char *pais[3]={"Peru","Bolvia","Colombia"};
 int *g;
 
-void emisor()
-{
-      int i; int l; int k;
-      MSGTYPE m;
-      for(k=0;k<CICLOS;k++) // Se pone este loop aquí para que sea más fácil alternar entre los países
-      {
-        for(i=0;i<3;i++)
-        {
-            printf("Entra %s\n",pais[i]);
-            sleep(rand()%3);
-            m.msg_type = 1;
-            sprintf(m.mensaje, "- %s Sale\n", pais[i]);
-            msgsnd(msgqid,&m,sizeof(MSGTYPE)-sizeof(long),0); // Mandamos el mensaje de que ya salió el país
-            fflush(stdout);
-            // Salida de la sección crítica
-            // Espera aleatoria fuera de la sección crítica
-            sleep(rand()%3);
-        }
-      }
+void proceso(int i) {
 
-      m.msg_type=1;
-     	strcpy(m.mensaje,"Fin");
-     	msgsnd(msgqid,&m,sizeof(MSGTYPE)-sizeof(long),0);
+	int k; int l; int retval;
+	MSGTYPE m;
 
-      exit(0); // Termina el proceso
- }
+	for(k = 0; k < CICLOS; k++) {
+		retval=msgrcv(msgqid,&m,sizeof(MSGTYPE)-sizeof(long),1,0);
+		printf("+ Entra %s ",pais[i]);
+		fflush(stdout);
+		sleep(rand()%3);
+		printf("- %s Sale\n", pais[i]);
 
- void receptor()
- {
-       MSGTYPE m;
-     	 int retval;
-       do
-     	{
-     		retval=msgrcv(msgqid,&m,sizeof(MSGTYPE)-sizeof(long),1,0); // Recibimos el mensaje
-     		printf("\t\tRecibido: %s",m.mensaje);
-     	}
-     	while(strcmp(m.mensaje,"Fin")!=0); // Hasta que el mensaje sea "Fin"
-      printf("\n");
-     	return;
+		m.msg_type = 1;
+		sprintf(m.mensaje, "+ Mensaje %d\n", i);
+		msgsnd(msgqid,&m,sizeof(MSGTYPE)-sizeof(long),0); // Mandamos el mensaje de que ya salió el país
+
+		// Salida de la sección crítica
+		// Espera aleatoria fuera de la sección crítica
+		sleep(rand()%3);
+	}
+
+	exit(0);
 }
 
 int main() {
-     int pid;
+     int pid; int i;
      int status;
      int args[3];
      srand(getpid());
 
      msgqid=msgget(0x1234,0666|IPC_CREAT); // Creamos la cola de mensajes
+		 MSGTYPE m;
+		 m.msg_type = 1;
+		 sprintf(m.mensaje, "Iniciando proceso de paso de trenes %d", i);
+		 msgsnd(msgqid, &m, sizeof(MSGTYPE)-sizeof(long), 0);
 
-    // Crea un nuevo proceso hijo que ejecuta la función emisor()
-    pid=fork();
-    if(pid==0)
-      emisor();
+    for(i = 0; i < 3; i++) {
+			pid=fork();
+	    if(pid==0)
+	      proceso(i);
+		}
 
-    receptor();
-
-    pid = wait(&status);
+		for(i=0; i<3; i++)
+    	pid = wait(&status);
 
     msgctl(msgqid,IPC_RMID,NULL); // Terminamos la cola de mensajes
     return(0);
